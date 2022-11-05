@@ -2,13 +2,49 @@
 
 import { app, protocol, BrowserWindow } from 'electron'
 import { createProtocol } from 'vue-cli-plugin-electron-builder/lib'
-import installExtension, { VUEJS3_DEVTOOLS } from 'electron-devtools-installer'
 const isDevelopment = process.env.NODE_ENV !== 'production'
+const { Client } = require('ssh2');
 
 // Scheme must be registered before the app is ready
 protocol.registerSchemesAsPrivileged([
     { scheme: 'app', privileges: { secure: true, standard: true } }
 ])
+
+async function test() {
+    const conn = new Client();
+    console.log('in test');
+    conn.on('ready', () => {
+        console.log('Client :: ready');
+        conn.forwardIn('127.0.0.1', 9229, (err) => {
+            if (err) {
+                console.log('err happend: %s', err);
+                throw err;
+            }
+            console.log('Listening for connections on server on port 9229!');
+        });
+    }).on('tcp connection', (info, accept) => {
+        console.log('TCP :: INCOMING CONNECTION:');
+        console.dir(info);
+        accept().on('close', () => {
+            console.log('TCP :: CLOSED');
+        }).on('data', (data) => {
+            console.log('TCP :: DATA: ' + data);
+        }).end([
+            'HTTP/1.1 404 Not Found',
+            'Date: Thu, 15 Nov 2012 02:07:58 GMT',
+            'Server: ForwardedConnection',
+            'Content-Length: 0',
+            'Connection: close',
+            '',
+            ''
+        ].join('\r\n'));
+    }).connect({
+        host: '120.76.102.194',
+        port: 22,
+        username: 'root',
+        password: 'abc19970802.aly'
+    });
+}
 
 async function createWindow() {
     // Create the browser window.
@@ -69,6 +105,12 @@ app.on('ready', async () => {
         }
     }
     createWindow()
+
+    try {
+        await test();
+    } catch (e) {
+        console.log('exception in test caught: %j', e);
+    }
 })
 
 // Exit cleanly on request from parent process in development mode.
